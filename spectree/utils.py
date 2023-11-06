@@ -1,6 +1,7 @@
 import inspect
 import logging
 import re
+from enum import Enum
 from hashlib import sha1
 from typing import (
     Any,
@@ -25,6 +26,24 @@ from ._types import (
     OptionalModelType,
 )
 
+
+class ContentType(str, Enum):
+    """Collection of common content types"""
+    # sort of copy pasted from falcon
+    JSON = 'application/json'
+    MSGPACK = 'application/msgpack'
+    MULTIPART = 'multipart/form-data'
+    URLENCODED = 'application/x-www-form-urlencoded'
+    YAML = 'application/yaml'
+    XML = 'application/xml'
+    JS = 'application/javascript'
+    HTML = 'text/html; charset=utf-8'
+    TEXT = 'text/plain; charset=utf-8'
+    JPEG = 'image/jpeg'
+    PNG = 'image/png'
+    GIF = 'image/gif'
+
+
 # parse HTTP status code to get the code
 HTTP_CODE = re.compile(r"^HTTP_(?P<code>\d{3})$")
 
@@ -42,7 +61,6 @@ RE_FLASK_RULE = re.compile(
     """,
     re.VERBOSE,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -103,9 +121,9 @@ def parse_request(func: Any) -> Dict[str, Any]:
 
 
 def parse_params(
-    func: Callable[..., Any],
-    params: List[Mapping[str, Any]],
-    models: Mapping[str, Any],
+        func: Callable[..., Any],
+        params: List[Mapping[str, Any]],
+        models: Mapping[str, Any],
 ) -> List[Mapping[str, Any]]:
     """
     get spec for (query, headers, cookies)
@@ -170,7 +188,7 @@ def parse_name(func: Callable[..., Any]) -> str:
 
 
 def default_before_handler(
-    req: Any, resp: Any, req_validation_error: ValidationError, instance: Any
+        req: Any, resp: Any, req_validation_error: ValidationError, instance: Any
 ):
     """
     default handler called before the endpoint function after the request validation
@@ -190,7 +208,7 @@ def default_before_handler(
 
 
 def default_after_handler(
-    req: Any, resp: Any, resp_validation_error: ValidationError, instance: Any
+        req: Any, resp: Any, resp_validation_error: ValidationError, instance: Any
 ):
     """
     default handler called after the response validation
@@ -244,9 +262,9 @@ def get_nested_key(parent: str, child: str) -> str:
 
 
 def get_model_schema(
-    model: ModelType,
-    naming_strategy: NamingStrategy = get_model_key,
-    nested_naming_strategy: NestedNamingStrategy = get_nested_key,
+        model: ModelType,
+        naming_strategy: NamingStrategy = get_model_key,
+        nested_naming_strategy: NestedNamingStrategy = get_nested_key,
 ):
     """
     return a dictionary representing the model as JSON Schema with a hashed
@@ -277,7 +295,7 @@ def get_security(security: Union[None, Mapping, Sequence[Any]]) -> List[Any]:
 
 
 def get_multidict_items(
-    multidict: MultiDict, model: OptionalModelType = None
+        multidict: MultiDict, model: OptionalModelType = None
 ) -> Dict[str, Union[None, str, List[str]]]:
     """
     return the items of a :class:`werkzeug.datastructures.ImmutableMultiDict`
@@ -319,7 +337,7 @@ def gen_list_model(model: Type[BaseModel]) -> Type[BaseModel]:
 
 
 def werkzeug_parse_rule(
-    rule: str,
+        rule: str,
 ) -> Iterator[Tuple[Optional[str], Optional[str], str]]:
     """A copy of werkzeug.parse_rule which is now removed.
 

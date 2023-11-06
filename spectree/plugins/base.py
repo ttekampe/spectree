@@ -30,6 +30,18 @@ class Context(NamedTuple):
     cookies: dict
 
 
+class RequestBody:
+    def __init__(self,
+                 content_type: str,
+                 model: ModelType,
+                 deserializer: Optional[callable] = None,
+                 content_encoding: Optional[str] = None):
+        self.content_type = content_type
+        self.content_encoding = content_encoding
+        self.model = model
+        self.deserializer = deserializer if deserializer else lambda x: x
+
+
 BackendRoute = TypeVar("BackendRoute")
 
 
@@ -58,20 +70,21 @@ class BasePlugin(Generic[BackendRoute]):
         raise NotImplementedError
 
     def validate(
-        self,
-        func: Callable,
-        query: Optional[ModelType],
-        json: Optional[ModelType],
-        form: Optional[ModelType],
-        headers: Optional[ModelType],
-        cookies: Optional[ModelType],
-        resp: Optional[Response],
-        before: Callable,
-        after: Callable,
-        validation_error_status: int,
-        skip_validation: bool,
-        *args: Any,
-        **kwargs: Any,
+            self,
+            func: Callable,
+            query: Optional[ModelType],
+            json: Optional[ModelType],
+            form: Optional[ModelType],
+            body: Optional[RequestBody],
+            headers: Optional[ModelType],
+            cookies: Optional[ModelType],
+            resp: Optional[Response],
+            before: Callable,
+            after: Callable,
+            validation_error_status: int,
+            skip_validation: bool,
+            *args: Any,
+            **kwargs: Any,
     ):
         """
         validate the request and response
@@ -94,7 +107,7 @@ class BasePlugin(Generic[BackendRoute]):
         raise NotImplementedError
 
     def parse_path(
-        self, route: Any, path_parameter_descriptions: Optional[Mapping[str, str]]
+            self, route: Any, path_parameter_descriptions: Optional[Mapping[str, str]]
     ):
         """
         :param route: API routes
@@ -138,8 +151,8 @@ class ResponseValidationResult:
 
 
 def validate_response(
-    validation_model: OptionalModelType,
-    response_payload: Any,
+        validation_model: OptionalModelType,
+        response_payload: Any,
 ) -> ResponseValidationResult:
     """Validate a given ``response_payload`` against a ``validation_model``.
     This does nothing if ``validation_model is None``.

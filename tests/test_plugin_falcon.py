@@ -68,12 +68,12 @@ class UserScore:
         resp=Response(HTTP_200=Resp, HTTP_401=None),
         tags=[api_tag, "test"],
     )
-    def on_post(self, req, resp, name, query: Query, json: JSON, cookies: Cookies):
-        score = [randint(0, req.context.json.limit) for _ in range(5)]
+    def on_post(self, req, resp, name, query: Query, body: JSON, cookies: Cookies):
+        score = [randint(0, req.context.body.limit) for _ in range(5)]
         score.sort(reverse=req.context.query.order)
         assert req.context.cookies.pub == "abcdefg"
         assert req.cookies["pub"] == "abcdefg"
-        resp.media = {"name": req.context.json.name, "score": score}
+        resp.media = {"name": req.context.body.name, "score": score}
 
 
 class UserScoreAnnotated:
@@ -91,12 +91,12 @@ class UserScoreAnnotated:
         resp=Response(HTTP_200=Resp, HTTP_401=None),
         tags=[api_tag, "test"],
     )
-    def on_post(self, req, resp, name, query: Query, json: JSON, cookies: Cookies):
-        score = [randint(0, req.context.json.limit) for _ in range(5)]
+    def on_post(self, req, resp, name, query: Query, body: JSON, cookies: Cookies):
+        score = [randint(0, req.context.body.limit) for _ in range(5)]
         score.sort(reverse=req.context.query.order)
         assert req.context.cookies.pub == "abcdefg"
         assert req.cookies["pub"] == "abcdefg"
-        resp.media = {"name": req.context.json.name, "score": score}
+        resp.media = {"name": req.context.body.name, "score": score}
 
 
 class UserScoreSkip:
@@ -118,18 +118,18 @@ class UserScoreSkip:
         tags=[api_tag, "test"],
         skip_validation=True,
     )
-    def on_post(self, req, resp, name, query: Query, json: JSON, cookies: Cookies):
+    def on_post(self, req, resp, name, query: Query, body: JSON, cookies: Cookies):
         response_format = req.params.get("response_format")
         assert response_format in ("json", "xml")
-        score = [randint(0, req.context.json.limit) for _ in range(5)]
+        score = [randint(0, req.context.body.limit) for _ in range(5)]
         score.sort(reverse=req.context.query.order)
         assert req.context.cookies.pub == "abcdefg"
         assert req.cookies["pub"] == "abcdefg"
         if response_format == "json":
-            resp.media = {"name": req.context.json.name, "x_score": score}
+            resp.media = {"name": req.context.body.name, "x_score": score}
         else:
             resp.content_type = falcon.MEDIA_XML
-            resp.text = UserXmlData(name=req.context.json.name, score=score).dump_xml()
+            resp.text = UserXmlData(name=req.context.body.name, score=score).dump_xml()
 
 
 class UserScoreModel:
@@ -150,12 +150,12 @@ class UserScoreModel:
         resp=Response(HTTP_200=Resp, HTTP_401=None),
         tags=[api_tag, "test"],
     )
-    def on_post(self, req, resp, name, query: Query, json: JSON, cookies: Cookies):
-        score = [randint(0, req.context.json.limit) for _ in range(5)]
+    def on_post(self, req, resp, name, query: Query, body: JSON, cookies: Cookies):
+        score = [randint(0, req.context.body.limit) for _ in range(5)]
         score.sort(reverse=req.context.query.order)
         assert req.context.cookies.pub == "abcdefg"
         assert req.cookies["pub"] == "abcdefg"
-        resp.media = Resp(name=req.context.json.name, score=score)
+        resp.media = Resp(name=req.context.body.name, score=score)
 
 
 class UserAddress:
@@ -184,7 +184,7 @@ class NoResponseView:
     @api.validate(
         json=StrDict,  # resp is missing completely
     )
-    def on_post(self, req, resp, json: JSON):
+    def on_post(self, req, resp, body: JSON):
         pass
 
 
@@ -194,9 +194,9 @@ class FileUploadView:
     @api.validate(
         form=FormFileUpload,
     )
-    def on_post(self, req, resp, form: FormFileUpload):
-        assert form.file
-        file_content = form.file
+    def on_post(self, req, resp, body: FormFileUpload):
+        assert body.file
+        file_content = body.file
         resp.media = {"file": file_content.decode("utf-8")}
 
 

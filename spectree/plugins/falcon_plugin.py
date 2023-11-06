@@ -1,5 +1,6 @@
 import inspect
 import re
+import warnings
 from functools import partial
 from typing import Any, Callable, Dict, List, Mapping, Optional, get_type_hints
 
@@ -8,8 +9,9 @@ from falcon.routing.compiled import _FIELD_PATTERN as FALCON_FIELD_PATTERN
 
 from spectree._pydantic import ValidationError
 from spectree._types import ModelType
-from spectree.plugins.base import BasePlugin, validate_response
+from spectree.plugins.base import BasePlugin, validate_response, RequestBody
 from spectree.response import Response
+from spectree.utils import ContentType
 
 
 class OpenAPI:
@@ -44,6 +46,10 @@ DOC_CLASS: List[str] = [
 ]
 
 HTTP_500: str = "500 Internal Service Response Validation Error"
+
+
+def _deserialize_form_data(raw_body):
+    return {x.name: x.stream.read() for x in raw_body}
 
 
 class FalconPlugin(BasePlugin):
@@ -168,51 +174,59 @@ class FalconPlugin(BasePlugin):
 
         return f'/{"/".join(subs)}', parameters
 
-    def request_validation(self, req, query, json, form, headers, cookies):
+    def request_validation(self, req, query, body: RequestBody, headers, cookies):
         if query:
             req.context.query = query.parse_obj(req.params)
         if headers:
             req.context.headers = headers.parse_obj(req.headers)
         if cookies:
             req.context.cookies = cookies.parse_obj(req.cookies)
-        if json:
+        if body:
             try:
-                media = req.media
+                deserialized_body = body.deserializer(req.get_media())
             except HTTPError as err:
                 if err.status not in self.FALCON_MEDIA_ERROR_CODE:
                     raise
-                media = None
-            req.context.json = json.parse_obj(media)
-        if form:
-            # TODO - possible to pass the BodyPart here?
-            # req_form = {x.name: x for x in req.get_media()}
-            req_form = {x.name: x.stream.read() for x in req.get_media()}
-            req.context.form = form.parse_obj(req_form)
+                deserialized_body = None
+            req.context.body = body.model.parse_obj(deserialized_body)
 
     def validate(
-        self,
-        func: Callable,
-        query: Optional[ModelType],
-        json: Optional[ModelType],
-        form: Optional[ModelType],
-        headers: Optional[ModelType],
-        cookies: Optional[ModelType],
-        resp: Optional[Response],
-        before: Callable,
-        after: Callable,
-        validation_error_status: int,
-        skip_validation: bool,
-        *args: Any,
-        **kwargs: Any,
+            self,
+            func: Callable,
+            query: Optional[ModelType],
+            json: Optional[ModelType],
+            form: Optional[ModelType],
+            body: Optional[RequestBody],
+            headers: Optional[ModelType],
+            cookies: Optional[ModelType],
+            resp: Optional[Response],
+            before: Callable,
+            after: Callable,
+            validation_error_status: int,
+            skip_validation: bool,
+            *args: Any,
+            **kwargs: Any,
     ):
+        if int(json is not None) + int(form is not None) + int(body is not None) > 1:
+            raise ValueError("Only one of json, form or body can be specified")
+
+        # backwards compatibility
+        if json:
+            warnings.warn("json parameter is deprecated, please use body instead", DeprecationWarning)
+            # we dont need a deserializer here, because falcon deserializes json out of the box
+            body = RequestBody(content_type=ContentType.JSON, model=json)
+        elif form:
+            warnings.warn("form parameter is deprecated, please use body instead", DeprecationWarning)
+            body = RequestBody(content_type=ContentType.MULTIPART, model=form, deserializer=_deserialize_form_data)
+
         # falcon endpoint method arguments: (self, req, resp)
         _self, _req, _resp = args[:3]
         req_validation_error, resp_validation_error = None, None
         try:
-            self.request_validation(_req, query, json, form, headers, cookies)
+            self.request_validation(_req, query, body, headers, cookies)
             if self.config.annotations:
                 annotations = get_type_hints(func)
-                for name in ("query", "json", "form", "headers", "cookies"):
+                for name in ("query", "body", "headers", "cookies"):
                     if annotations.get(name):
                         kwargs[name] = getattr(_req.context, name)
 
@@ -260,59 +274,61 @@ class FalconAsgiPlugin(FalconPlugin):
     OPEN_API_ROUTE_CLASS = OpenAPIAsgi
     DOC_PAGE_ROUTE_CLASS = DocPageAsgi
 
-    async def request_validation(self, req, query, json, form, headers, cookies):
+    async def request_validation(self, req, query, body: RequestBody, headers, cookies):
         if query:
             req.context.query = query.parse_obj(req.params)
         if headers:
             req.context.headers = headers.parse_obj(req.headers)
         if cookies:
             req.context.cookies = cookies.parse_obj(req.cookies)
-        if json:
+        if body:
             try:
-                media = await req.get_media()
+                deserialized_body = body.deserializer(await req.get_media())
             except HTTPError as err:
                 if err.status not in self.FALCON_MEDIA_ERROR_CODE:
                     raise
-                media = None
-            req.context.json = json.parse_obj(media)
-        if form:
-            try:
-                form_data = await req.get_media()
-            except HTTPError as err:
-                if err.status not in self.FALCON_MEDIA_ERROR_CODE:
-                    raise
-                req.context.form = None
-            else:
-                res_data = {}
-                async for x in form_data:
-                    res_data[x.name] = x
-                    await x.data  # TODO - how to avoid this?
-                req.context.form = form.parse_obj(res_data)
+                deserialized_body = None
+            req.context.body = body.model.parse_obj(deserialized_body)
 
     async def validate(
-        self,
-        func: Callable,
-        query: Optional[ModelType],
-        json: Optional[ModelType],
-        form: Optional[ModelType],
-        headers: Optional[ModelType],
-        cookies: Optional[ModelType],
-        resp: Optional[Response],
-        before: Callable,
-        after: Callable,
-        validation_error_status: int,
-        skip_validation: bool,
-        *args: Any,
-        **kwargs: Any,
+            self,
+            func: Callable,
+            query: Optional[ModelType],
+            json: Optional[ModelType],
+            form: Optional[ModelType],
+            body: Optional[RequestBody],
+            headers: Optional[ModelType],
+            cookies: Optional[ModelType],
+            resp: Optional[Response],
+            before: Callable,
+            after: Callable,
+            validation_error_status: int,
+            skip_validation: bool,
+            *args: Any,
+            **kwargs: Any,
     ):
+
+        if int(json is not None) + int(form is not None) + int(body is not None) > 1:
+            raise ValueError("Only one of json, form or body can be specified")
+
+        # backwards compatibility
+        if json:
+            warnings.warn("json parameter is deprecated, please use body instead", DeprecationWarning)
+            # we dont need a deserializer here, because falcon deserializes json out of the box
+            body = RequestBody(content_type=ContentType.JSON, model=json)
+        elif form:
+            # todo
+            warnings.warn("form parameter is deprecated, please use body instead", DeprecationWarning)
+            body = RequestBody(content_type=ContentType.MULTIPART, model=form, deserializer=_deserialize_form_data)
+
         # falcon endpoint method arguments: (self, req, resp)
         _self, _req, _resp = args[:3]
         req_validation_error, resp_validation_error = None, None
         try:
-            await self.request_validation(_req, query, json, form, headers, cookies)
+            await self.request_validation(_req, query, body, headers, cookies)
             if self.config.annotations:
                 annotations = get_type_hints(func)
-                for name in ("query", "json", "form", "headers", "cookies"):
+                for name in ("query", "body", "headers", "cookies"):
                     if annotations.get(name):
                         kwargs[name] = getattr(_req.context, name)
 

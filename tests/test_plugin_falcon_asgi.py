@@ -66,11 +66,11 @@ class UserScore:
         tags=[api_tag, "test"],
     )
     async def on_post(self, req, resp, name):
-        score = [randint(0, req.context.json.limit) for _ in range(5)]
+        score = [randint(0, req.context.body.limit) for _ in range(5)]
         score.sort(reverse=req.context.query.order)
         assert req.context.cookies.pub == "abcdefg"
         assert req.cookies["pub"] == "abcdefg"
-        resp.media = {"name": req.context.json.name, "score": score}
+        resp.media = {"name": req.context.body.name, "score": score}
 
 
 class UserScoreAnnotated:
@@ -89,13 +89,13 @@ class UserScoreAnnotated:
         tags=[api_tag, "test"],
     )
     async def on_post(
-        self, req, resp, name, query: Query, json: JSON, cookies: Cookies
+        self, req, resp, name, query: Query, body: JSON, cookies: Cookies
     ):
-        score = [randint(0, req.context.json.limit) for _ in range(5)]
+        score = [randint(0, req.context.body.limit) for _ in range(5)]
         score.sort(reverse=req.context.query.order)
         assert req.context.cookies.pub == "abcdefg"
         assert req.cookies["pub"] == "abcdefg"
-        resp.media = {"name": req.context.json.name, "score": score}
+        resp.media = {"name": req.context.body.name, "score": score}
 
 
 class NoResponseView:
@@ -110,7 +110,7 @@ class NoResponseView:
     @api.validate(
         json=StrDict,  # resp is missing completely
     )
-    async def on_post(self, req, resp, json: JSON):
+    async def on_post(self, req, resp, body: JSON):
         pass
 
 
@@ -120,7 +120,7 @@ class ListJsonView:
     @api.validate(
         json=ListJSON,
     )
-    async def on_post(self, req, resp, json: ListJSON):
+    async def on_post(self, req, resp, body: ListJSON):
         pass
 
 

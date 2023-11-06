@@ -17,6 +17,7 @@ from ._types import FunctionDecorator, ModelType, NamingStrategy, NestedNamingSt
 from .config import Configuration, ModeEnum
 from .models import Tag, ValidationError
 from .plugins import PLUGINS, BasePlugin
+from .plugins.base import RequestBody
 from .response import Response
 from .utils import (
     default_after_handler,
@@ -129,6 +130,7 @@ class SpecTree:
         query: Optional[ModelType] = None,
         json: Optional[ModelType] = None,
         form: Optional[ModelType] = None,
+        body: Optional[RequestBody] = None,
         headers: Optional[ModelType] = None,
         cookies: Optional[ModelType] = None,
         resp: Optional[Response] = None,
@@ -183,6 +185,7 @@ class SpecTree:
                     query,
                     json,
                     form,
+                    body,
                     headers,
                     cookies,
                     resp,
@@ -202,6 +205,7 @@ class SpecTree:
                     query,
                     json,
                     form,
+                    body,
                     headers,
                     cookies,
                     resp,
@@ -228,8 +232,8 @@ class SpecTree:
 
             # register
             for name, model in zip(
-                ("query", "json", "form", "headers", "cookies"),
-                (query, json, form, headers, cookies),
+                ("query", "json", "form", "body", "headers", "cookies"),
+                (query, json, form, body, headers, cookies),
             ):
                 if model is not None:
                     model_key = self._add_model(model=model)
